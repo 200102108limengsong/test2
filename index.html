@@ -25,31 +25,24 @@
         <script>
             Cesium.Ion.defaultAccessToken ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0Y2Q4MzVkNi1lM2JiLTRjYjItYjhkNi02ZGQ1MDc3ZDFlZjAiLCJpZCI6MTYwMjY5LCJpYXQiOjE3MTEyNjA5ODV9.y62hzpo7Asf7GG5dfhII6vRBTsRua6MeAmGqtSq6Sv4'; // 这里替换为你的实际token
             
-            var viewer = new Cesium.Viewer("cesiumContainer",{
-                imageryProvider: new Cesium.IonImageryProvider({ assetId: 2 }),
-                //ion...是cesium的一个类，通过cesium ion来获取影像，这是一个地理数据集
-                //assetid是数据的标识符
-                geocoder: false,    //位置查找工具,改为false会隐藏
+            var viewer = new Cesium.Viewer("cesiumContainer", {
+            imageryProvider: new Cesium.IonImageryProvider({ assetId: 2 }),
+            geocoder: false, //位置查找工具,改为false会隐藏
+        });
             
-            });
-            var wmsImageryProvider = new Cesium.WebMapServiceImageryProvider({
-                url:'http://localhost:8080/geoserver/geo_test1/wms',
-                layers:'geo_test1:dem11',
-                parameters:{
-                    transparent:true,
-                    srs:'EPSG:4326',
-                    format:'image/png',
-                }
-            })
-            viewer.imageryLayers.addImageryProvider(wmsImageryProvider)
+            // 创建矩形区域
+        var rectangle = Cesium.Rectangle.fromDegrees(114.2, 30.5, 114.7, 30.6);
 
-            viewer.dataSources.add(Cesium.GeoJsonDataSource.load("http://localhost:8080/geoserver/geo_test1/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=geo_test1%3ASJ_shp1&maxFeatures=50&outputFormat=application%2Fjson",{
-                fill:Cesium.Color.RED,
-                stroke:Cesium.Color.BLUE,
-                strokeWidth:5,
-            }));
+// 添加单张图片作为影像层
+viewer.imageryLayers.addImageryProvider(new Cesium.SingleTileImageryProvider({
+    url: "http://localhost:8082/Geo/test1.png",
+    rectangle: rectangle
+}));
 
-
+// 设置相机视角
+viewer.camera.setView({
+    destination: rectangle
+});
         </script>
     </body>
 </html>
