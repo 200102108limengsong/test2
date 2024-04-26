@@ -1,16 +1,24 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <title>Cesium 3D Tiles Example</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.95/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.95/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
-        html, body, #cesiumContainer {
-            width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+        html,
+        body,
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
         }
     </style>
 </head>
+
 <body>
     <div id="cesiumContainer"></div>
     <script>
@@ -23,17 +31,24 @@
             terrainProvider: Cesium.createWorldTerrain()
         });
 
-        // Add Cesium OSM Buildings, a global 3D buildings layer.
-        const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+        // 使用 Cesium.IonResource.fromAssetId 方法获取资源 URL
+        Cesium.IonResource.fromAssetId(2275207)
+            .then(function (resource) {
+                // 使用获取到的资源 URL 创建 Cesium3DTileset 实例
+                const tileset = new Cesium.Cesium3DTileset({
+                    url: resource
+                });
+                // 将 tileset 添加到场景中
+                viewer.scene.primitives.add(tileset);
+                // 可选：飞向 tileset 的位置
+                viewer.zoomTo(tileset);
+            })
+            .catch(function (error) {
+                console.error(error);
+            });
 
-        // Fly the camera to San Francisco at the given longitude, latitude, and height.
-        viewer.camera.flyTo({
-            destination : Cesium.Cartesian3.fromDegrees(-122.4175, 37.655, 400),
-            orientation : {
-                heading : Cesium.Math.toRadians(0.0),
-                pitch : Cesium.Math.toRadians(-15.0),
-            }
-        });
+
     </script>
 </body>
+
 </html>
