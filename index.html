@@ -31,22 +31,16 @@
             terrainProvider: Cesium.createWorldTerrain()
         });
 
-        // 使用 Cesium.IonResource.fromAssetId 方法获取资源 URL
-        Cesium.IonResource.fromAssetId(2275207)
-            .then(function (resource) {
-                // 使用获取到的资源 URL 创建 Cesium3DTileset 实例
-                const tileset = new Cesium.Cesium3DTileset({
-                    url: resource
-                });
-                // 将 tileset 添加到场景中
-                viewer.scene.primitives.add(tileset);
-                // 可选：飞向 tileset 的位置
-                viewer.zoomTo(tileset);
-            })
-            .catch(function (error) {
-                console.error(error);
-            });
+        // 加载本地 3D Tileset
+        const tileset = new Cesium.Cesium3DTileset({
+            url: 'http://localhost:8082/Geo/CS_3D-2/tileset.json'
+        });
 
+        // 将 3D Tileset 添加到 Viewer 的场景中
+        viewer.scene.primitives.add(tileset);
+
+        // 调整相机视角以查看 3D Tileset
+        viewer.zoomTo(tileset);
 
     </script>
 </body>
