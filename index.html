@@ -28,6 +28,10 @@
 
         // Initialize the Cesium Viewer in the HTML element with the `cesiumContainer` ID.
         const viewer = new Cesium.Viewer('cesiumContainer', {
+            animation:false,
+            timeline:false,
+            
+            
             terrainProvider: Cesium.createWorldTerrain()
         });
 
@@ -35,7 +39,7 @@
         const tileset = new Cesium.Cesium3DTileset({
             url: 'http://localhost:8082/Geo/CS_3D-2/tileset.json'
         });
-
+        viewer.scene.debugShowFramesPerSecond=true;
         // 将 3D Tileset 添加到 Viewer 的场景中
         viewer.scene.primitives.add(tileset);
 
