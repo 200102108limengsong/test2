@@ -21,32 +21,163 @@
 
 <body>
     <div id="cesiumContainer"></div>
+
     <script>
-        // Your access token can be found at: https://cesium.com/ion/tokens.
-        // Replace `your_access_token` with the Cesium ion access token.
         Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0Y2Q4MzVkNi1lM2JiLTRjYjItYjhkNi02ZGQ1MDc3ZDFlZjAiLCJpZCI6MTYwMjY5LCJpYXQiOjE3MTEyNjA5ODV9.y62hzpo7Asf7GG5dfhII6vRBTsRua6MeAmGqtSq6Sv4';
+        var viewer = new Cesium.Viewer('cesiumContainer', {
+            animation: false,//动画组件
+            timeline: false,//时间线
 
-        // Initialize the Cesium Viewer in the HTML element with the `cesiumContainer` ID.
-        const viewer = new Cesium.Viewer('cesiumContainer', {
-            animation:false,
-            timeline:false,
-            
-            
-            terrainProvider: Cesium.createWorldTerrain()
         });
 
-        // 加载本地 3D Tileset
-        const tileset = new Cesium.Cesium3DTileset({
-            url: 'http://localhost:8082/Geo/CS_3D-2/tileset.json'
+        var redBox = viewer.entities.add({//这是 Cesium Viewer 对象的一个方法调用。entitie是viewer的一个属性，包含场景中所有实体
+            name: 'Red box with black outline',
+            //position设置了实体的位置，cesium.js中，cartesian3.fromdegrees()是方法，接受经度、纬度、高度参数
+            //返回的是一个点的数据
+            position: Cesium.Cartesian3.fromDegrees(107.0, 40.0, 3000.0),
+            //box定义了集合体
+            box: {
+                //dimensions是实体的尺寸,x,y,z
+                dimensions: new Cesium.Cartesian3(400000.0, 300000.0, 500000.0),
+                material: Cesium.Color.RED.withAlpha(0.5),//material材料，withalpha是透明度
+                outline: true,//轮廓线
+                outlineColor: Cesium.Color.BLACK
+            }
         });
-        viewer.scene.debugShowFramesPerSecond=true;
-        // 将 3D Tileset 添加到 Viewer 的场景中
-        viewer.scene.primitives.add(tileset);
 
-        // 调整相机视角以查看 3D Tileset
-        viewer.zoomTo(tileset);
+
+
+        //CZML示例，有两个组成部分
+        //第一个对象是根对象，第二个是实体对象，实体是根的子对象
+        var czml = [{
+            "id": "document",
+            "name": "box2",//对象名称
+            "version": "1.0"//文档版本
+        }, {
+            "id": "shape2",
+            "name": "Red box with black outline",
+            "position": {
+                "cartographicDegrees": [-107.0, 40.0, 300000.0]
+            },
+            "box": {
+                "dimensions": {
+                    "cartesian": [400000.0, 300000.0, 500000.0]
+                },
+                "material": {
+                    "solidColor": {
+                        "color": {
+                            "rgba": [255, 0, 0, 128]//R\G\B\A，红绿蓝，透明度
+                        }
+                    }
+                },
+                "outline": true,
+                "outlineColor": {
+                    "rgba": [0, 0, 0, 255]
+                }
+            }
+        }];
+
+        //调用了CesiumJS库中的 Cesium.CzmlDataSource.load 方法，该方法负责加载CZML格式的数据。
+        var dataSourcePromise = Cesium.CzmlDataSource.load(czml);//
+        //dataSources 属性是CesiumJS中用于管理多个数据源的集合。add是添加数据
+        viewer.dataSources.add(dataSourcePromise);
+
+
+
+
+        //添加点point
+        var BJpoint = viewer.entities.add({
+            name: "beijing",
+            //fromDegrees(x,y,z)将经纬度转为笛卡尔坐标
+            position: Cesium.Cartesian3.fromDegrees(116.404, 39.915, 1000),
+            point: {
+                pixelSize: 10,//点的大小
+                color: Cesium.Color.BLACK,
+            }
+        })
+
+
+        //添加线polyline
+        var BJlline = viewer.entities.add({
+            name: "beijing center line",
+            polyline: {
+                positions: Cesium.Cartesian3.fromDegreesArray([116, 39, 117, 40, 118, 41]),
+                width: 5,
+                material: Cesium.Color.fromBytes(255, 50, 60, 100)
+            }
+        })
+
+
+        //添加面polygon
+        var BJPolygon = viewer.entities.add({
+            name: "beijing mian",
+            polygon: {
+                //hierarchy 是一个用于定义几何体或形状顶点顺序的属性。它通常用于 Cesium.Entity 对象中的 polyline（多段线）、polygon（多边形）和 corridor（走廊）等几何体。
+                //fromDegreesArray()将经纬度坐标转换为Cartesian3对象坐标数组
+                hierarchy: Cesium.Cartesian3.fromDegreesArray([116.0, 39.9, 116.30, 40.08, 116.91, 39.94, 116.50, 39.72]),
+                material: Cesium.Color.YELLOW.withAlpha(0.7),
+                outline: true,//轮廓
+                outlineColor: Cesium.Color.RED,
+                perPositionHeight: true,//顶点高度
+            }
+        })
+
+
+        //添加圆柱体
+        var addcylinder = viewer.entities.add({
+            name: "shandong cylinder",
+            position: Cesium.Cartesian3.fromDegrees(117.5, 36.3, 2000),
+            cylinder: {
+                length: 40000,//长度
+                topRadius: 20000,//顶部半径
+                bottomRadius: 1000,//底部半径
+                material: Cesium.Color.BLUE.withAlpha(0.7),
+                outline: true,
+                outlineColor: Cesium.Color.BLACK,
+            }
+        })
+
+
+        //添加墙
+        var addWall = viewer.entities.add({
+            name: "shanxi wall",
+            //fromDegreesArrayHeights,将一系列经纬度坐标和高度值转换为一个 Cesium.Cartesian3 对象的数组
+            wall: {
+                positions: Cesium.Cartesian3.fromDegreesArrayHeights([
+                    114.4, 36.5, 20000,
+                    114.4, 37.5, 10000,
+                    113, 37.5, 20000,
+                    113, 36.5, 10000,
+                ]),
+                material:Cesium.Color.RED,
+            }
+        })
+
+        var corridorPositions = Cesium.Cartesian3.fromDegreesArrayHeights([
+            114,34,5000,//起点
+            113,34,10000,//中间点
+            115,35,1000,//终点
+        ])
+        var corridorEntity = viewer.entities.add({
+            name:"corridor",
+            corridor:{
+                positions:corridorPositions,
+                width:20000,
+                material:Cesium.Color.YELLOW
+
+            }
+        })
+
+        viewer.zoomTo(corridorEntity);
+
+
 
     </script>
+
+
+
+
+
 </body>
 
 </html>
