@@ -7,168 +7,105 @@
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.95/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.95/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
+        /* 选择器，选中了html，body元素，以及id为cesiumContainer的任何元素 */
         html,
         body,
         #cesiumContainer {
             width: 100%;
             height: 100%;
             margin: 0;
+            /*元素外边距为0 */
             padding: 0;
+            /*元素内边距为0*/
             overflow: hidden;
+            /*超出指定范围的元素隐藏起来*/
+        }
+
+        #toolbar {}
+
+        #eagleEye {
+            position: absolute;
+            /*元素定位，absolute绝对定位.绝对定位意味着元素的位置相对于其最近的非 static（非静态）定位的祖先元素进行定位*/
+            width: 25%;
+            height: 30%;
+            bottom: 0;
+            right: 0;
+            z-index: 999;
+            /*元素堆叠顺序，最大为999在最上层，最小为0*/
         }
     </style>
 </head>
 
 <body>
     <div id="cesiumContainer"></div>
+    <div id="eagleEye"></div>
 
     <script>
         Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0Y2Q4MzVkNi1lM2JiLTRjYjItYjhkNi02ZGQ1MDc3ZDFlZjAiLCJpZCI6MTYwMjY5LCJpYXQiOjE3MTEyNjA5ODV9.y62hzpo7Asf7GG5dfhII6vRBTsRua6MeAmGqtSq6Sv4';
-        var viewer = new Cesium.Viewer('cesiumContainer', {
-            animation: false,//动画组件
-            timeline: false,//时间线
 
+        var viewer = new Cesium.Viewer("cesiumContainer", {
+            animation: false,
+            timeline: false,
+
+
+
+        })
+
+        var viewerEye = new Cesium.Viewer("eagleEye", {
+            geocoder: false,
+            homeButton: false,
+            sceneModePicker: false,
+            baseLayerPicker: false,
+            navigationHelpButton: false,
+            animation: false,
+            timeline: false,
+            fullscreenButton: false,
+
+            sceneMode: Cesium.SceneMode.SCENE2D,
+            //将地图转为天地图
+            imageryProvider: new Cesium.WebMapTileServiceImageryProvider({
+                url: "http://t0.tianditu.com/vec_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=vec&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default&format=tiles&tk=522719ca5560c61f39ce58153cf29bc4",
+            })
+        })
+        // 添加天地图矢量标注图层
+        var tiandituLabels = new Cesium.WebMapTileServiceImageryProvider({
+            url: "http://t0.tianditu.com/cva_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=cva&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default.jpg&tk=522719ca5560c61f39ce58153cf29bc4 ",
+            layer: "tdtAnnoLayer",
+            style: "default",
+            format: "image/jpeg",
+            tileMatrixSetID: "GoogleMapsCompatible",
+            subdomains:['0','1','2','3','4','5','6','7'],
+            
         });
 
-        var redBox = viewer.entities.add({//这是 Cesium Viewer 对象的一个方法调用。entitie是viewer的一个属性，包含场景中所有实体
-            name: 'Red box with black outline',
-            //position设置了实体的位置，cesium.js中，cartesian3.fromdegrees()是方法，接受经度、纬度、高度参数
-            //返回的是一个点的数据
-            position: Cesium.Cartesian3.fromDegrees(107.0, 40.0, 3000.0),
-            //box定义了集合体
-            box: {
-                //dimensions是实体的尺寸,x,y,z
-                dimensions: new Cesium.Cartesian3(400000.0, 300000.0, 500000.0),
-                material: Cesium.Color.RED.withAlpha(0.5),//material材料，withalpha是透明度
-                outline: true,//轮廓线
-                outlineColor: Cesium.Color.BLACK
-            }
-        });
+        
+        //去除Cesium水印
+        viewerEye._cesiumWidget._creditContainer.style.display = 'none';
 
+        //禁止鹰眼地图相机操作
+        viewerEye.scene.screenSpaceCameraController.enableRotate = false;
+        viewerEye.scene.screenSpaceCameraController.enableTranslate = false;
+        viewerEye.scene.screenSpaceCameraController.enableZoom = false;
+        viewerEye.scene.screenSpaceCameraController.enableTilt = false;
+        viewerEye.scene.screenSpaceCameraController.enableLook = false;
 
-
-        //CZML示例，有两个组成部分
-        //第一个对象是根对象，第二个是实体对象，实体是根的子对象
-        var czml = [{
-            "id": "document",
-            "name": "box2",//对象名称
-            "version": "1.0"//文档版本
-        }, {
-            "id": "shape2",
-            "name": "Red box with black outline",
-            "position": {
-                "cartographicDegrees": [-107.0, 40.0, 300000.0]
-            },
-            "box": {
-                "dimensions": {
-                    "cartesian": [400000.0, 300000.0, 500000.0]
+        // 控制鹰眼地图相机视角
+        function reViewer() {
+            viewerEye.camera.flyTo({
+                destination: viewer.scene.camera.position, // 注意这里使用小写的viewer变量
+                orientation: {
+                    heading: viewer.scene.camera.heading,
+                    pitch: viewer.scene.camera.pitch,
+                    roll: viewer.scene.camera.roll,
                 },
-                "material": {
-                    "solidColor": {
-                        "color": {
-                            "rgba": [255, 0, 0, 128]//R\G\B\A，红绿蓝，透明度
-                        }
-                    }
-                },
-                "outline": true,
-                "outlineColor": {
-                    "rgba": [0, 0, 0, 255]
-                }
-            }
-        }];
+                duration: 0.0 // 立即跳转，没有动画
+            });
+        }
+        viewer.camera.percentageChanged = 0.01;//地图刷新率,越小刷新越快
+        viewer.camera.changed.addEventListener(reViewer);
+        viewer.imageryLayers.addImageryProvider(tiandituLabels);
+        
 
-        //调用了CesiumJS库中的 Cesium.CzmlDataSource.load 方法，该方法负责加载CZML格式的数据。
-        var dataSourcePromise = Cesium.CzmlDataSource.load(czml);//
-        //dataSources 属性是CesiumJS中用于管理多个数据源的集合。add是添加数据
-        viewer.dataSources.add(dataSourcePromise);
-
-
-
-
-        //添加点point
-        var BJpoint = viewer.entities.add({
-            name: "beijing",
-            //fromDegrees(x,y,z)将经纬度转为笛卡尔坐标
-            position: Cesium.Cartesian3.fromDegrees(116.404, 39.915, 1000),
-            point: {
-                pixelSize: 10,//点的大小
-                color: Cesium.Color.BLACK,
-            }
-        })
-
-
-        //添加线polyline
-        var BJlline = viewer.entities.add({
-            name: "beijing center line",
-            polyline: {
-                positions: Cesium.Cartesian3.fromDegreesArray([116, 39, 117, 40, 118, 41]),
-                width: 5,
-                material: Cesium.Color.fromBytes(255, 50, 60, 100)
-            }
-        })
-
-
-        //添加面polygon
-        var BJPolygon = viewer.entities.add({
-            name: "beijing mian",
-            polygon: {
-                //hierarchy 是一个用于定义几何体或形状顶点顺序的属性。它通常用于 Cesium.Entity 对象中的 polyline（多段线）、polygon（多边形）和 corridor（走廊）等几何体。
-                //fromDegreesArray()将经纬度坐标转换为Cartesian3对象坐标数组
-                hierarchy: Cesium.Cartesian3.fromDegreesArray([116.0, 39.9, 116.30, 40.08, 116.91, 39.94, 116.50, 39.72]),
-                material: Cesium.Color.YELLOW.withAlpha(0.7),
-                outline: true,//轮廓
-                outlineColor: Cesium.Color.RED,
-                perPositionHeight: true,//顶点高度
-            }
-        })
-
-
-        //添加圆柱体
-        var addcylinder = viewer.entities.add({
-            name: "shandong cylinder",
-            position: Cesium.Cartesian3.fromDegrees(117.5, 36.3, 2000),
-            cylinder: {
-                length: 40000,//长度
-                topRadius: 20000,//顶部半径
-                bottomRadius: 1000,//底部半径
-                material: Cesium.Color.BLUE.withAlpha(0.7),
-                outline: true,
-                outlineColor: Cesium.Color.BLACK,
-            }
-        })
-
-
-        //添加墙
-        var addWall = viewer.entities.add({
-            name: "shanxi wall",
-            //fromDegreesArrayHeights,将一系列经纬度坐标和高度值转换为一个 Cesium.Cartesian3 对象的数组
-            wall: {
-                positions: Cesium.Cartesian3.fromDegreesArrayHeights([
-                    114.4, 36.5, 20000,
-                    114.4, 37.5, 10000,
-                    113, 37.5, 20000,
-                    113, 36.5, 10000,
-                ]),
-                material:Cesium.Color.RED,
-            }
-        })
-
-        var corridorPositions = Cesium.Cartesian3.fromDegreesArrayHeights([
-            114,34,5000,//起点
-            113,34,10000,//中间点
-            115,35,1000,//终点
-        ])
-        var corridorEntity = viewer.entities.add({
-            name:"corridor",
-            corridor:{
-                positions:corridorPositions,
-                width:20000,
-                material:Cesium.Color.YELLOW
-
-            }
-        })
-
-        viewer.zoomTo(corridorEntity);
 
 
 
