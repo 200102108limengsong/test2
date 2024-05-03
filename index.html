@@ -19,19 +19,13 @@
             /*元素内边距为0*/
             overflow: hidden;
             /*超出指定范围的元素隐藏起来*/
-        }  
+        }
 
-        #toolbar {}
-
-        #eagleEye {
+        #toolbar {
             position: absolute;
-            /*元素定位，absolute绝对定位.绝对定位意味着元素的位置相对于其最近的非 static（非静态）定位的祖先元素进行定位*/
-            width: 25%;
-            height: 30%;
-            bottom: 0;
-            right: 0;
-            z-index: 999;
-            /*元素堆叠顺序，最大为999在最上层，最小为0*/
+            top: 10px;
+            left: 20px;
+            background-color: rgba(50, 208, 129, 10);
         }
     </style>
 </head>
@@ -39,6 +33,13 @@
 <body>
     <div id="cesiumContainer"></div>
     <div id="eagleEye"></div>
+    <div id="toolbar">
+        <select id="dropdown" >
+            <option value="rain">雨</option>
+            <option value="snow">雪</option>
+            <option value="null">null</option>
+        </select>
+    </div>
 
     <script>
         Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0Y2Q4MzVkNi1lM2JiLTRjYjItYjhkNi02ZGQ1MDc3ZDFlZjAiLCJpZCI6MTYwMjY5LCJpYXQiOjE3MTEyNjA5ODV9.y62hzpo7Asf7GG5dfhII6vRBTsRua6MeAmGqtSq6Sv4';
@@ -46,68 +47,135 @@
         var viewer = new Cesium.Viewer("cesiumContainer", {
             animation: false,
             timeline: false,
+            shouldAnimate: true,
+        })
+        //定义粒子特效位置
+        //Cartesian3是非常重要的类，用与表示三维空间中的一个点或者向量。分别代表x,y,z
+        //fromDegrees（）将经纬度转为笛卡尔坐标
+        var position = new Cesium.Cartesian3.fromDegrees(116, 30, 20000)
 
+        var modeMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
 
+        //特效常量定义
+        const rainRadius = 9999999;//下雨的半径
+        const minimumRainImageSize = new Cesium.Cartesian2(10, 10)//最小尺寸
+        const maximumRainImageSize = new Cesium.Cartesian2(20, 20)//最大尺寸
+        //创建一个名为RG的Cartesian3对象，更新粒子位置
+        //以 Scratch 结尾的变量名通常表示这个变量是临时使用的
+        var rainGravityScratch = new Cesium.Cartesian3();
+        //粒子更新回调
+        function rainUpdate(particle) {
+            //笛卡尔坐标标准形式
+            Cesium.Cartesian3.normalize(//标准化粒子位置向量
+                particle.position,//粒子当前位置向量
+                rainGravityScratch//结果存放在这个文件中
+            )
+            Cesium.Cartesian3.multiplyByScalar(//应用重力效果
+                rainGravityScratch,
+                Cesium.Math.randomBetween(-30, -300),//随机的标量，代表重力的大小
+                rainGravityScratch
+            )
+            Cesium.Cartesian3.add(//更新粒子位置
+                particle.position,
+                rainGravityScratch,
+                particle.position
+            )
+        }
+        //粒子系统-下雨天
+        var rainOptions = {
+            modeMatrix: modeMatrix,
+            lifetime: 15.0,//粒子系统存在时间
+            //定义了发射器的类型的行为。sphereEmitter表示粒子从球形区域内射出,里面是半径
+            emitter: new Cesium.SphereEmitter(rainRadius),
+            //定义了粒子生产和发射率
+            startScale: 0.5,
+            endScale: 0.5,
+            emissionRate: 7000,//发射率，定义每秒发射的粒子数量
+            startColor: Cesium.Color.WHITE.withAlpha(0.0),
+            endColor: Cesium.Color.WHITE.withAlpha(1.0),
+            minimumImageSize: minimumRainImageSize,
+            maximumImageSize: maximumRainImageSize,
+            updateCallback: rainUpdate,
+            image: "http://localhost:8082/Geo/yu.png",
+        }
 
+        //创建Cartesian3对象，更新粒子位置
+        var snowGravityScratch = new Cesium.Cartesian3();
+        //粒子更新回调
+        function snowUpdate(particle) {
+            //笛卡尔坐标标准形式
+            Cesium.Cartesian3.normalize(
+                particle.position,
+                snowGravityScratch
+            )
+            Cesium.Cartesian3.multiplyByScalar(
+                snowGravityScratch,
+                Cesium.Math.randomBetween(-30, -300),
+                snowGravityScratch
+            )
+            Cesium.Cartesian3.add(
+                particle.position,
+                snowGravityScratch,
+                particle.position
+            )
+        }
+
+        // 修正变量初始化
+        var snowRadius = 9999999; // 下雪效果的半径
+        var snowImageSize = new Cesium.Cartesian2(10, 10); // 下雪粒子图像大小
+
+        //粒子系统-下雪天
+        var snowOptions = {
+            modeMatrix: modeMatrix,
+            lifetime: 15.0,
+            emitter: new Cesium.SphereEmitter(snowRadius),
+            startScale: 1,
+            endScale: 1,
+            emissionRate: 9000,
+            startColor: Cesium.Color.WHITE.withAlpha(0.0),
+            endColor: Cesium.Color.WHITE.withAlpha(1.0),
+            imageSize: snowImageSize,
+            updateCallback: snowUpdate,
+            image: "http://localhost:8082/Geo/xue.png",
+        }
+
+        //ParticleSystem创建了粒子系统
+        //scene是表示3D场景对象，primitives是场景中的图形集合
+        viewer.scene.primitives.add(new Cesium.ParticleSystem(rainOptions))
+
+        //下来菜单改变事件
+        var dropdown = document.getElementById("dropdown")
+        function change() {
+            switch (dropdown.value) {
+                case 'snow':
+                    viewer.scene.primitives.removeAll()
+                    viewer.scene.primitives.add(new Cesium.ParticleSystem(snowOptions))
+                    break;
+                case 'rain':
+                    viewer.scene.primitives.removeAll()
+                    viewer.scene.primitives.add(new Cesium.ParticleSystem(rainOptions))
+                    break;
+                case 'null':
+                    viewer.scene.primitives.removeAll();
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        viewer.scene.camera.setView({//设置相机视角
+            //destination定义了相机的目标位置
+            destination: Cesium.Cartesian3.fromDegrees(116.0, 30.0, 20000.0),
+            //属性是一个对象
+            orientation: {
+                heading: 5,//方位角，0代表北方90代表东方
+                pitch: -6,//俯仰角，正值表示向下倾斜
+                roll: 0.000002//翻滚角，相机绕前进轴旋转角度
+            },
         })
 
-        var viewerEye = new Cesium.Viewer("eagleEye", {
-            geocoder: false,
-            homeButton: false,
-            sceneModePicker: false,
-            baseLayerPicker: false,
-            navigationHelpButton: false,
-            animation: false,
-            timeline: false,
-            fullscreenButton: false,
-
-            sceneMode: Cesium.SceneMode.SCENE2D,
-            //将地图转为天地图
-            imageryProvider: new Cesium.WebMapTileServiceImageryProvider({
-                url: "http://t0.tianditu.com/vec_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=vec&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default&format=tiles&tk=522719ca5560c61f39ce58153cf29bc4",
-            })
-        })
-        // 添加天地图矢量标注图层
-        var tiandituLabels = new Cesium.WebMapTileServiceImageryProvider({
-            url: "http://t0.tianditu.com/cva_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=cva&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default.jpg&tk=522719ca5560c61f39ce58153cf29bc4 ",
-            layer: "tdtAnnoLayer",
-            style: "default",
-            format: "image/jpeg",
-            tileMatrixSetID: "GoogleMapsCompatible",
-            subdomains:['0','1','2','3','4','5','6','7'],
-            
-        });
-
-        
-        //去除Cesium水印
-        viewerEye._cesiumWidget._creditContainer.style.display = 'none';
-
-        //禁止鹰眼地图相机操作
-        viewerEye.scene.screenSpaceCameraController.enableRotate = false;
-        viewerEye.scene.screenSpaceCameraController.enableTranslate = false;
-        viewerEye.scene.screenSpaceCameraController.enableZoom = false;
-        viewerEye.scene.screenSpaceCameraController.enableTilt = false;
-        viewerEye.scene.screenSpaceCameraController.enableLook = false;
-
-        // 控制鹰眼地图相机视角
-        function reViewer() {
-            viewerEye.camera.flyTo({
-                destination: viewer.scene.camera.position, // 注意这里使用小写的viewer变量
-                orientation: {
-                    heading: viewer.scene.camera.heading,
-                    pitch: viewer.scene.camera.pitch,
-                    roll: viewer.scene.camera.roll,
-                },
-                duration: 0.0 // 立即跳转，没有动画
-            });
-        }  
-        viewer.camera.percentageChanged = 0.01;//地图刷新率,越小刷新越快
-        viewer.camera.changed.addEventListener(reViewer);
-        viewer.imageryLayers.addImageryProvider(tiandituLabels);
-        
-
-
-
+        // 修正下拉菜单变更事件绑定
+        dropdown.addEventListener('change', change);
 
     </script>
 
