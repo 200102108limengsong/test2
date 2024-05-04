@@ -61,12 +61,12 @@
         viewer.scene.globe.depthTestAgainstTerrain = true;
         var height; //当前水位
         var maxHeight;  //最高水位
-        var speed;  //水位增长
-        var positions=[];  //绘制多边形顶点
-        var handler;   //???鼠标事件
-        var addRegion  //添加多边形
+        var speed;  //水位增长的速度
+        var positions=[];  //一个空数组，用于储存绘制多边形顶点的坐标
+        var handler;   //存储Cesium事件处理器，如鼠标点击、移动
+        var addRegion  
 
-        //调整相机视角
+        //调整相机视角，destination:目的地
         viewer.scene.camera.setView({
             destination:Cesium.Cartesian3.fromDegrees(114,30,20)
         })
@@ -77,44 +77,55 @@
             return height;
         }
         
-        //绘制分析区域
+        //绘制分析区域,定义函数
         function addPolygon(hierarchy){
-            addRegion = {
+            addRegion = {//创建多边形实体
                 id:'polygon',
                 name:'矩形',
                 show:true,
                 polygon:{
+                    //顶点坐标
                     hierarchy:hierarchy,
+                    //材质
                     material:new Cesium.ImageMaterialProperty({
                         image:"http://localhost:8082/Geo/hongshui.png",
-                        repeat:Cesium.Cartesian2(1.0,1.0),
-                        transparent:true,
+                        repeat:Cesium.Cartesian2(1.0,1.0),//表示图像再多边形表面重估次数,x,y轴
+                        transparent:true,//图像透明度
                         color:Cesium.Color.WHITE.withAlpha(1),
                     }),
                     height:new Cesium.CallbackProperty(updateHeight,false),
+                    //定义callbackproperty用语动态确定多边形高度,该属性接受两个参数
+                    //回调函数updateheight，负责返回当前水位高度
+                    //是否时间依赖，flase认为回调函数返回值与时间无关
                 }
             }
+            //将addregion对象添加到实体集合,entities是一个实体集合
             viewer.entities.add(addRegion);
+            //handler.setInputAction是将方法添加到handler实例上
+            //ScreenSpaceEventType是一个枚举，定义了不同类型屏幕空间事件
             handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
             handler.removeInputAction(Cesium.ScreenSpaceEventType.RIGHT_CLICK)
         }
 
         function draw(){
+            //这三行代码是从输入框读取用户的值
             height = parseFloat(document.getElementById("startHeight").value);
             maxHeight = parseFloat(document.getElementById("stopHeight").value);
             speed = parseFloat(document.getElementById("speed").value);
+            //将addregion实体从entities集合中移除,防止重复绘制
             viewer.entities.remove(addRegion);
+            //创建一个新的ScreenSpaceEventHandler来监听用户点击动作
             handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
-
+            //左点击事件
             handler.setInputAction(function(event){
                 var earthPosition = viewer.scene.pickPosition(event.position);
                 positions.push(earthPosition);
             },
             Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
+            //右点击事件
             handler.setInputAction(function(event){
                 addPolygon(positions);
-                positions = [];
+                positions = [];//清空数组
             },
             Cesium.ScreenSpaceEventType.RIGHT_CLICK);         
         }
