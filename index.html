@@ -21,25 +21,31 @@
             /*超出指定范围的元素隐藏起来*/
         }
 
-        #toolbar {
+        .toolbar {
             position: absolute;
             top: 10px;
             left: 20px;
-            background-color: rgba(50, 208, 129, 10);
+            background-color: rgba(50, 208, 129, 0.5);
         }
+
+        .toolbar input{
+            width: 140px;
+            height: 30px;
+        }
+
     </style>
 </head>
 
 <body>
     <div id="cesiumContainer"></div>
-    <div id="eagleEye"></div>
-    <div id="toolbar">
-        <select id="dropdown" >
-            <option value="rain">雨</option>
-            <option value="snow">雪</option>
-            <option value="null">null</option>
-        </select>
+    
+    <div class="toolbar">
+        <input type="text" id="startHeight" placeholder="起始水位"><br>
+        <input type="text" id="stopHeight" placeholder="停止水位"><br>
+        <input type="text" id="speed" placeholder="速度"><br>
+        <button onclick="draw()">绘制洪水区域</button>
     </div>
+
 
     <script>
         Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0Y2Q4MzVkNi1lM2JiLTRjYjItYjhkNi02ZGQ1MDc3ZDFlZjAiLCJpZCI6MTYwMjY5LCJpYXQiOjE3MTEyNjA5ODV9.y62hzpo7Asf7GG5dfhII6vRBTsRua6MeAmGqtSq6Sv4';
@@ -48,135 +54,70 @@
             animation: false,
             timeline: false,
             shouldAnimate: true,
+            terrainProvider:Cesium.createWorldTerrain()
         })
-        //定义粒子特效位置
-        //Cartesian3是非常重要的类，用与表示三维空间中的一个点或者向量。分别代表x,y,z
-        //fromDegrees（）将经纬度转为笛卡尔坐标
-        var position = new Cesium.Cartesian3.fromDegrees(116, 30, 20000)
+        
+        //开启深度探测
+        viewer.scene.globe.depthTestAgainstTerrain = true;
+        var height; //当前水位
+        var maxHeight;  //最高水位
+        var speed;  //水位增长
+        var positions=[];  //绘制多边形顶点
+        var handler;   //???鼠标事件
+        var addRegion  //添加多边形
 
-        var modeMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
-
-        //特效常量定义
-        const rainRadius = 9999999;//下雨的半径
-        const minimumRainImageSize = new Cesium.Cartesian2(10, 10)//最小尺寸
-        const maximumRainImageSize = new Cesium.Cartesian2(20, 20)//最大尺寸
-        //创建一个名为RG的Cartesian3对象，更新粒子位置
-        //以 Scratch 结尾的变量名通常表示这个变量是临时使用的
-        var rainGravityScratch = new Cesium.Cartesian3();
-        //粒子更新回调
-        function rainUpdate(particle) {
-            //笛卡尔坐标标准形式
-            Cesium.Cartesian3.normalize(//标准化粒子位置向量
-                particle.position,//粒子当前位置向量
-                rainGravityScratch//结果存放在这个文件中
-            )
-            Cesium.Cartesian3.multiplyByScalar(//应用重力效果
-                rainGravityScratch,
-                Cesium.Math.randomBetween(-30, -300),//随机的标量，代表重力的大小
-                rainGravityScratch
-            )
-            Cesium.Cartesian3.add(//更新粒子位置
-                particle.position,
-                rainGravityScratch,
-                particle.position
-            )
+        //调整相机视角
+        viewer.scene.camera.setView({
+            destination:Cesium.Cartesian3.fromDegrees(114,30,20)
+        })
+        //水位高度更新函数
+        function updateHeight(){
+            if (height<maxHeight)
+                height +=speed;
+            return height;
         }
-        //粒子系统-下雨天
-        var rainOptions = {
-            modeMatrix: modeMatrix,
-            lifetime: 15.0,//粒子系统存在时间
-            //定义了发射器的类型的行为。sphereEmitter表示粒子从球形区域内射出,里面是半径
-            emitter: new Cesium.SphereEmitter(rainRadius),
-            //定义了粒子生产和发射率
-            startScale: 0.5,
-            endScale: 0.5,
-            emissionRate: 7000,//发射率，定义每秒发射的粒子数量
-            startColor: Cesium.Color.WHITE.withAlpha(0.0),
-            endColor: Cesium.Color.WHITE.withAlpha(1.0),
-            minimumImageSize: minimumRainImageSize,
-            maximumImageSize: maximumRainImageSize,
-            updateCallback: rainUpdate,
-            image: "http://localhost:8082/Geo/yu.png",
-        }
-
-        //创建Cartesian3对象，更新粒子位置
-        var snowGravityScratch = new Cesium.Cartesian3();
-        //粒子更新回调
-        function snowUpdate(particle) {
-            //笛卡尔坐标标准形式
-            Cesium.Cartesian3.normalize(
-                particle.position,
-                snowGravityScratch
-            )
-            Cesium.Cartesian3.multiplyByScalar(
-                snowGravityScratch,
-                Cesium.Math.randomBetween(-30, -300),
-                snowGravityScratch
-            )
-            Cesium.Cartesian3.add(
-                particle.position,
-                snowGravityScratch,
-                particle.position
-            )
-        }
-
-        // 修正变量初始化
-        var snowRadius = 9999999; // 下雪效果的半径
-        var snowImageSize = new Cesium.Cartesian2(10, 10); // 下雪粒子图像大小
-
-        //粒子系统-下雪天
-        var snowOptions = {
-            modeMatrix: modeMatrix,
-            lifetime: 15.0,
-            emitter: new Cesium.SphereEmitter(snowRadius),
-            startScale: 1,
-            endScale: 1,
-            emissionRate: 9000,
-            startColor: Cesium.Color.WHITE.withAlpha(0.0),
-            endColor: Cesium.Color.WHITE.withAlpha(1.0),
-            imageSize: snowImageSize,
-            updateCallback: snowUpdate,
-            image: "http://localhost:8082/Geo/xue.png",
-        }
-
-        //ParticleSystem创建了粒子系统
-        //scene是表示3D场景对象，primitives是场景中的图形集合
-        viewer.scene.primitives.add(new Cesium.ParticleSystem(rainOptions))
-
-        //下来菜单改变事件
-        var dropdown = document.getElementById("dropdown")
-        function change() {
-            switch (dropdown.value) {
-                case 'snow':
-                    viewer.scene.primitives.removeAll()
-                    viewer.scene.primitives.add(new Cesium.ParticleSystem(snowOptions))
-                    break;
-                case 'rain':
-                    viewer.scene.primitives.removeAll()
-                    viewer.scene.primitives.add(new Cesium.ParticleSystem(rainOptions))
-                    break;
-                case 'null':
-                    viewer.scene.primitives.removeAll();
-                    break;
-                default:
-                    break;
+        
+        //绘制分析区域
+        function addPolygon(hierarchy){
+            addRegion = {
+                id:'polygon',
+                name:'矩形',
+                show:true,
+                polygon:{
+                    hierarchy:hierarchy,
+                    material:new Cesium.ImageMaterialProperty({
+                        image:"http://localhost:8082/Geo/hongshui.png",
+                        repeat:Cesium.Cartesian2(1.0,1.0),
+                        transparent:true,
+                        color:Cesium.Color.WHITE.withAlpha(1),
+                    }),
+                    height:new Cesium.CallbackProperty(updateHeight,false),
+                }
             }
+            viewer.entities.add(addRegion);
+            handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
+            handler.removeInputAction(Cesium.ScreenSpaceEventType.RIGHT_CLICK)
         }
 
-        viewer.scene.camera.setView({//设置相机视角
-            //destination定义了相机的目标位置
-            destination: Cesium.Cartesian3.fromDegrees(116.0, 30.0, 20000.0),
-            //属性是一个对象
-            orientation: {
-                heading: 5,//方位角，0代表北方90代表东方
-                pitch: -6,//俯仰角，正值表示向下倾斜
-                roll: 0.000002//翻滚角，相机绕前进轴旋转角度
+        function draw(){
+            height = parseFloat(document.getElementById("startHeight").value);
+            maxHeight = parseFloat(document.getElementById("stopHeight").value);
+            speed = parseFloat(document.getElementById("speed").value);
+            viewer.entities.remove(addRegion);
+            handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+
+            handler.setInputAction(function(event){
+                var earthPosition = viewer.scene.pickPosition(event.position);
+                positions.push(earthPosition);
             },
-        })
+            Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-        // 修正下拉菜单变更事件绑定
-        dropdown.addEventListener('change', change);
-
+            handler.setInputAction(function(event){
+                addPolygon(positions);
+                positions = [];
+            },
+            Cesium.ScreenSpaceEventType.RIGHT_CLICK);         
+        }
     </script>
 
 
