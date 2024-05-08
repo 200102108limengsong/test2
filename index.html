@@ -21,31 +21,13 @@
             /*超出指定范围的元素隐藏起来*/
         }
 
-        .toolbar {
-            position: absolute;
-            top: 10px;
-            left: 20px;
-            background-color: rgba(50, 208, 129, 0.5);
-        }
-
-        .toolbar input{
-            width: 140px;
-            height: 30px;
-        }
+        
 
     </style>
 </head>
 
 <body>
     <div id="cesiumContainer"></div>
-    
-    <div class="toolbar">
-        <input type="text" id="startHeight" placeholder="起始水位"><br>
-        <input type="text" id="stopHeight" placeholder="停止水位"><br>
-        <input type="text" id="speed" placeholder="速度"><br>
-        <button onclick="draw()">绘制洪水区域</button>
-    </div>
-
 
     <script>
         Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0Y2Q4MzVkNi1lM2JiLTRjYjItYjhkNi02ZGQ1MDc3ZDFlZjAiLCJpZCI6MTYwMjY5LCJpYXQiOjE3MTEyNjA5ODV9.y62hzpo7Asf7GG5dfhII6vRBTsRua6MeAmGqtSq6Sv4';
@@ -54,85 +36,81 @@
             animation: false,
             timeline: false,
             shouldAnimate: true,
-            terrainProvider:Cesium.createWorldTerrain()
+            terrainProvider:Cesium.createWorldTerrain(),
+            sceneModePicker:true,//视角模式切换工具
+            navigationHelpButton:true,//导航帮助工具
         })
         
-        //开启深度探测
-        viewer.scene.globe.depthTestAgainstTerrain = true;
-        var height; //当前水位
-        var maxHeight;  //最高水位
-        var speed;  //水位增长的速度
-        var positions=[];  //一个空数组，用于储存绘制多边形顶点的坐标
-        var handler;   //存储Cesium事件处理器，如鼠标点击、移动
-        var addRegion  
+        var tileSet = viewer.scene.primitives.add(
+            new Cesium.Cesium3DTileset({
+                url: 'http://localhost:8082/Geo/CS_3D-2/tileset.json'
+            })
+        )
+        viewer.zoomTo(tileSet)
 
-        //调整相机视角，destination:目的地
-        viewer.scene.camera.setView({
-            destination:Cesium.Cartesian3.fromDegrees(114,30,20)
-        })
-        //水位高度更新函数
-        function updateHeight(){
-            if (height<maxHeight)
-                height +=speed;
-            return height;
+        const newDiv = document.createElement("div");
+        //新建一个div元素赋值给newDiv
+        viewer.container.appendChild(newDiv);
+        //通过调用appendChild方法,让newDiv成为了viewer.container的子元素
+        newDiv.style.display = "none";
+        newDiv.style.position = "absolute";
+        newDiv.style.bottom = "0";
+        newDiv.style.left = "0";
+        newDiv.style.padding = "10px";
+        newDiv.style.backgroundColor = "white";
+
+
+        var highlighted = {//一个包含两个属性的对象
+            feature:undefined,
+            originalColor:new Cesium.Color(),
         }
+
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        //screenspaceevenhandler类，Cesiumjs中用来处理屏幕空间事件（如鼠标移动、鼠标点击）的类
+        //viewer.scene.canvas是渲染该场景的HTML canvas元素
         
-        //绘制分析区域,定义函数
-        function addPolygon(hierarchy){
-            addRegion = {//创建多边形实体
-                id:'polygon',
-                name:'矩形',
-                show:true,
-                polygon:{
-                    //顶点坐标
-                    hierarchy:hierarchy,
-                    //材质
-                    material:new Cesium.ImageMaterialProperty({
-                        image:"http://localhost:8082/Geo/hongshui.png",
-                        repeat:Cesium.Cartesian2(1.0,1.0),//表示图像再多边形表面重估次数,x,y轴
-                        transparent:true,//图像透明度
-                        color:Cesium.Color.WHITE.withAlpha(1),
-                    }),
-                    height:new Cesium.CallbackProperty(updateHeight,false),
-                    //定义callbackproperty用语动态确定多边形高度,该属性接受两个参数
-                    //回调函数updateheight，负责返回当前水位高度
-                    //是否时间依赖，flase认为回调函数返回值与时间无关
-                }
+        
+        
+        //设置第一个鼠标移动事件（空操作）
+        handler.setInputAction(function(event){
+        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+       
+       
+        //设置第二个鼠标移动事件
+        handler.setInputAction(function(event){
+            //鼠标拾取事件
+            const pickedFeature = viewer.scene.pick(event.endPosition);
+            //检查是否拾取到任何对象
+            if (!Cesium.defined(pickedFeature)){
+                newDiv.style.display = "none";//隐藏div
+                return;
             }
-            //将addregion对象添加到实体集合,entities是一个实体集合
-            viewer.entities.add(addRegion);
-            //handler.setInputAction是将方法添加到handler实例上
-            //ScreenSpaceEventType是一个枚举，定义了不同类型屏幕空间事件
-            handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
-            handler.removeInputAction(Cesium.ScreenSpaceEventType.RIGHT_CLICK)
-        }
 
-        function draw(){
-            //这三行代码是从输入框读取用户的值
-            height = parseFloat(document.getElementById("startHeight").value);
-            maxHeight = parseFloat(document.getElementById("stopHeight").value);
-            speed = parseFloat(document.getElementById("speed").value);
-            //将addregion实体从entities集合中移除,防止重复绘制
-            viewer.entities.remove(addRegion);
-            //创建一个新的ScreenSpaceEventHandler来监听用户点击动作
-            handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
-            //左点击事件
-            handler.setInputAction(function(event){
-                var earthPosition = viewer.scene.pickPosition(event.position);
-                positions.push(earthPosition);
-            },
-            Cesium.ScreenSpaceEventType.LEFT_CLICK);
-            //右点击事件
-            handler.setInputAction(function(event){
-                addPolygon(positions);
-                positions = [];//清空数组
-            },
-            Cesium.ScreenSpaceEventType.RIGHT_CLICK);         
-        }
+            else{
+                if(Cesium.defined(highlighted.feature)){//检查highlighted.feature是否定义
+                    //如果zh按有对象被high...定义，将对象颜色和设置恢复成初始。
+                    highlighted.feature.color = highlighted.originalColor;
+                    highlighted.feature = undefined;
+                }
+                //将拾取到的对象设置为high...同时备份颜色和设置颜色
+                highlighted.feature = pickedFeature;
+                Cesium.Color.clone(pickedFeature.color,highlighted.originalColor);
+                pickedFeature.color = Cesium.Color.LIME.withAlpha(0.5);
+                
+
+                newDiv.style.display = "block";//block确保newdiv显示\
+
+                newDiv.style.bottom=`${viewer.canvas.clientHeight - event.endPosition.y+5}px`;
+                newDiv.style.left = `${event.endPosition.x}px`;
+                //获取拾取对象的elevation属性，并将其显示在newdiv中
+                const name = "Name: " + (pickedFeature.getProperty("name") || "N/A");
+                newDiv.textContent = name;
+            }
+
+        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+       
     </script>
-
-
-
 
 
 </body>
