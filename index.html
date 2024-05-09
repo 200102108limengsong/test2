@@ -41,6 +41,8 @@
             navigationHelpButton:true,//导航帮助工具
         })
         
+        viewer.scene.globe.depthTestAgainstTerrain = true;
+
         var tileSet = viewer.scene.primitives.add(
             new Cesium.Cesium3DTileset({
                 url: 'http://localhost:8082/Geo/CS_3D-2/tileset.json'
@@ -48,67 +50,122 @@
         )
         viewer.zoomTo(tileSet)
 
-        const newDiv = document.createElement("div");
-        //新建一个div元素赋值给newDiv
-        viewer.container.appendChild(newDiv);
-        //通过调用appendChild方法,让newDiv成为了viewer.container的子元素
-        newDiv.style.display = "none";
-        newDiv.style.position = "absolute";
-        newDiv.style.bottom = "0";
-        newDiv.style.left = "0";
-        newDiv.style.padding = "10px";
-        newDiv.style.backgroundColor = "white";
+        //计算距离函数
+        function getSpaceDistance(positions){
+            var distance = 0;
+            for(var i =0;i<positions.length -1;i++){
+                //直接计算距离
+                //Cesium.Cartesian3.distance 方法来计算数组中当前点 (positions[i]) 与下一个点 (positions[i + 1]) 之间的直线距离
+                distance +=Cesium.Cartesian3.distance(positions[i],positions[i+1])
 
-
-        var highlighted = {//一个包含两个属性的对象
-            feature:undefined,
-            originalColor:new Cesium.Color(),
+            }
+            return distance.toFixed(2);//将distance保留小数点后两位
         }
 
-        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-        //screenspaceevenhandler类，Cesiumjs中用来处理屏幕空间事件（如鼠标移动、鼠标点击）的类
-        //viewer.scene.canvas是渲染该场景的HTML canvas元素
-        
-        
-        
-        //设置第一个鼠标移动事件（空操作）
-        handler.setInputAction(function(event){
-        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        var positions= [];//用于储存计算距离的点
+        var activeShapePoints = [];//动态点数组
+        var activeShape;//动态图形
+        var floatingPoint;//??????????????????????????
 
-       
-       
-        //设置第二个鼠标移动事件
-        handler.setInputAction(function(event){
-            //鼠标拾取事件
-            const pickedFeature = viewer.scene.pick(event.endPosition);
-            //检查是否拾取到任何对象
-            if (!Cesium.defined(pickedFeature)){
-                newDiv.style.display = "none";//隐藏div
-                return;
-            }
-
-            else{
-                if(Cesium.defined(highlighted.feature)){//检查highlighted.feature是否定义
-                    //如果zh按有对象被high...定义，将对象颜色和设置恢复成初始。
-                    highlighted.feature.color = highlighted.originalColor;
-                    highlighted.feature = undefined;
+        //绘制点与标签
+        function drawPoint(position,textDisance){//接收两个参数，position点的位置,textdisance显示距离文本
+            var pointGeometry = viewer.entities.add({//新建实体
+                name:"point",
+                position:position,
+                point:{
+                    color:Cesium.Color.SKYBLUE,
+                    pixeSize:6,
+                    outlineColor:Cesium.Color.YELLOW,
+                    outlineWidth:2,
+                    disableDepthTestDistance:1000,//当距离低于1000时不被高程遮挡
+                }, 
+                label:{
+                    text:textDisance+"米",
+                    font:'20px sans-serif',//字体设置，大小20px,字体类型sans-serif
+                    fileColor:Cesium.Color.GOLD,//填充颜色
+                    style:Cesium.LabelStyle.FILL_AND_OUTLINE,//标签样式：填充加轮廓
+                    outlineWidth:2,
+                    verticalOrigin:Cesium.VerticalOrigin.BOTTOM,//标签的垂直原点设置为底部
+                    pixeOffset:new Cesium.Cartesian2(20,-20),//即标签在点的右下方20像素处显示
+                    heightReference:Cesium.HeightReference.NONE//表示标签高度不参照任何地形或模型
                 }
-                //将拾取到的对象设置为high...同时备份颜色和设置颜色
-                highlighted.feature = pickedFeature;
-                Cesium.Color.clone(pickedFeature.color,highlighted.originalColor);
-                pickedFeature.color = Cesium.Color.LIME.withAlpha(0.5);
-                
+            })
+            return pointGeometry;
+        }
 
-                newDiv.style.display = "block";//block确保newdiv显示\
+        //绘制图形
+        function drawShape(positionData){
+            var shape;
+            shape = viewer.entities.add({
+                polyline:{
+                    positions:positionData,
+                    width:5.0,
+                    material:new Cesium.PolylineGlowMaterialProperty({
+                        color:Cesium.Color.GOLD,
+                    })//材质设置：Cesium.PolylineGlowMaterialProperty 实例
+                }
+            })
+            return shape;
+        }
 
-                newDiv.style.bottom=`${viewer.canvas.clientHeight - event.endPosition.y+5}px`;
-                newDiv.style.left = `${event.endPosition.x}px`;
-                //获取拾取对象的elevation属性，并将其显示在newdiv中
-                const name = "Name: " + (pickedFeature.getProperty("name") || "N/A");
-                newDiv.textContent = name;
+        //定义变量handler并实例化ScreenSpaceEventHandler对象
+        var handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+        //viewer.canvas指的是 Cesium 视图（Viewer）所使用的 HTML canvas 元素，它提供了一个通过 JavaScript 来绘制图形的二维绘图表面。
+
+        //鼠标左键点击事件
+        handler.setInputAction(function(event){
+            //使用 viewer.scene.pickPosition 方法获取鼠标点击位置对应的地球表面的三维位置（Cartesian3 坐标）。
+            var earthPosition = viewer.scene.pickPosition(event.position);
+            //计算距离
+            positions.push(earthPosition);
+            var distance = getSpaceDistance(positions);
+            //如果鼠标指针不在地球上，earthposition是未定义
+            if(Cesium.defined(earthPosition)){
+                //检测activeShapePoints 数组是否为空，activeShapePoints 数组用于存储绘制动态线条时的顶点位置。如果这是用户的第一次点击，数组将为空。
+                if(activeShapePoints.length ===0){
+                    activeShapePoints.push(earthPosition);
+                    //动态点通过call....实时更新数组当前值，实现动态更新顶点位置
+                    var dynamicPositions = new Cesium.CallbackProperty(function(){
+                        return activeShapePoints;
+                    },false);
+                    activeShape = drawShape(dynamicPositions);//调用drawshape函数
+                }
+                //添加当前点到activeShapePoints中，这是为了确保点击后动态线条可以即时更新并延伸到新的点击位置。
+                activeShapePoints.push(earthPosition);
+                //调用drawPoint 函数在当前点击位置绘制一个点
+                floatingPoint = drawPoint(earthPosition,distance);
             }
+        },Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
+        //鼠标移动事件
+        handler.setInputAction(function(event){
+            if(Cesium.defined(floatingPoint)){
+                var newPosition = viewer.scene.pickPosition(event.endPosition);
+                if(Cesium.defined(newPosition)){
+                    
+                    activeShapePoints.pop();//删除数组中的最后一个元素，在这里移除最后一个元素是为了移除之前鼠标位置所添加的点。
+                    activeShapePoints.push(newPosition);//这样，动态线条的末端就会更新为鼠标的当前位置，实现线条随鼠标移动而动态变化的效果。
+                }
+            }
         },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        /*总的来说，这段代码用于在用户绘制线条过程中，实时更新线条的末端位置，
+        使线条能够随着鼠标的移动而动态变化。这提高了用户绘制和测量操作的交互性和直观性。*/
+
+        //鼠标右击事件
+        handler.setInputAction(function(event){
+            activeShapePoints.pop();
+            if (activeShapePoints.length){
+                drawShape(activeShapePoints);
+            }
+            viewer.entities.remove(activeShape);
+            floatingPoint = undefined;
+            activeShape = undefined;
+            activeShapePoints = [];
+            positions = [];
+
+        },Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+
+
        
     </script>
 
